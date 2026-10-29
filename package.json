@@ -6,8 +6,12 @@
     "build": "node tools/build.mjs",
     "check": "node tools/check.mjs",
     "dev": "node tools/build.mjs && python3 -m http.server 8000 --directory dist",
-    "verify": "node tools/build.mjs && node tools/check.mjs",
+    "verify": "node tools/build.mjs && node tools/check.mjs && node tools/a11y.mjs",
     "shots": "node tools/shots.mjs",
-    "deploy": "node tools/deploy.mjs"
+    "deploy": "node tools/deploy.mjs",
+    "a11y": "node tools/a11y.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.14.0"
   }
 }

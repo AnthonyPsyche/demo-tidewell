@@ -5,6 +5,8 @@
   --color-teal: #2f7f86;
   --color-sand: #f4ead8;
   --color-ember: #e0733a;
+  --color-link: #256a70; /* Sea Glass deepened to pass 4.5:1 for links and small text on paper and sand */
+  --color-ember-text: #9c4311; /* ember darkened to pass 4.5:1 for small text on paper and sand; ember itself is for fills only */
   --color-ink: #1a2326;
   --color-paper: #fffdf8;
   --color-muted: #5d6b70;
