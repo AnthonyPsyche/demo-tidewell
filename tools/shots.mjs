@@ -47,6 +47,9 @@ for (const p of pages) {
     const l = loaded();
     await send("Page.navigate", { url: "file://" + path.join(dist, p) });
     await l; await sleep(400);
+    // reveal-on-scroll content never intersects in a full-page capture, so show it, and pin looping animations
+    await send("Runtime.evaluate", { expression: `document.querySelectorAll(".reveal,.draw").forEach(e=>e.classList.add("in")); document.querySelectorAll("[data-count]").forEach(e=>e.textContent=e.dataset.count); document.querySelectorAll("img[loading=lazy]").forEach(i=>i.loading="eager"); Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))`, awaitPromise: true });
+    await sleep(1500);
     const m = await send("Page.getLayoutMetrics");
     const height = Math.ceil(m.result.cssContentSize.height);
     const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width, height, scale: 1 } });
@@ -57,4 +60,5 @@ for (const p of pages) {
   }
 }
 fs.writeFileSync(path.join(out, "README.md"), md);
-ws.close(); chrome.kill(); fs.rmSync(profile, { recursive: true, force: true });
+ws.close(); chrome.kill(); await sleep(800);
+try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }); } catch {} // temp profile; harmless if Chrome still holds a file

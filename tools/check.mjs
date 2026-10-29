@@ -7,6 +7,8 @@ import path from "node:path";
 const dist = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "dist");
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
 const TRACKERS = /googletagmanager|google-analytics|gtag\(|fbq\(|connect\.facebook|hotjar|clarity\.ms|hs-scripts|doubleclick|segment\.com|mixpanel|plausible|datafa\.st|recaptcha|cookieyes/i;
+const HEADING_EXEMPT = new Set(['branding/index.html']); // the Branding page is a type specimen (H1-H5 shown in a row), so it is not held to SEO heading structure
+const titles = new Map();
 const problems = [];
 const add = (file, msg) => problems.push(`${path.relative(dist, file)}: ${msg}`);
 
@@ -29,6 +31,26 @@ for (const file of walk(dist).filter((f) => f.endsWith(".html"))) {
   if (TRACKERS.test(html)) add(file, "tracker/analytics string found");
   for (const m of html.matchAll(/<img\b(?![^>]*\balt=)[^>]*>/gi)) add(file, `img missing alt ${m[0].slice(0, 80)}`);
   if (!/<title>[^<]+<\/title>/.test(html)) add(file, "missing <title>");
+  const rel = path.relative(dist, file).split(path.sep).join("/");
+  const title = (html.match(/<title>([^<]*)<\/title>/) || [])[1];
+  if (title) {
+    if (title.length > 65) add(file, `title is ${title.length} chars (keep under ~60)`);
+    if (titles.has(title)) add(file, `duplicate <title> also used by ${titles.get(title)}`); else titles.set(title, rel);
+  }
+  if (!/<meta name="description" content="[^"]{20,}"/.test(html)) add(file, "missing or too-short meta description");
+  if (!/<html[^>]*\slang="[^"]+"/.test(html)) add(file, "missing <html lang>");
+  if (!/<main[\s>]/.test(html)) add(file, "missing <main> landmark");
+  for (const m of html.matchAll(/<img\b[^>]*>/gi)) if (!/\swidth="\d+"/.test(m[0]) || !/\sheight="\d+"/.test(m[0])) add(file, `img missing width/height (layout shift) ${m[0].slice(0, 70)}`);
+  if (!HEADING_EXEMPT.has(rel) && !/404\.html$/.test(rel)) {
+    const hs = [...html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)].map((m) => ({ level: Number(m[1]), text: m[2].replace(/<[^>]+>/g, "").trim() }));
+    const h1s = hs.filter((h) => h.level === 1);
+    if (h1s.length !== 1) add(file, `expected exactly one <h1>, found ${h1s.length}`);
+    if (hs.length && hs[0].level !== 1) add(file, `first heading is <h${hs[0].level}>, should be <h1>`);
+    hs.forEach((h, i) => {
+      if (!h.text) add(file, `empty <h${h.level}>`);
+      if (i > 0 && h.level > hs[i - 1].level + 1) add(file, `heading skips a level: <h${hs[i - 1].level}> then <h${h.level}> "${h.text.slice(0, 40)}"`);
+    });
+  }
   if (!/<meta name="viewport"/.test(html)) add(file, "missing viewport meta");
   for (const m of html.matchAll(/<iframe[^>]*src="(https?:\/\/[^"]+)"/gi)) console.warn(`note: ${path.relative(dist, file)} embeds ${m[1]} (third-party contact on view)`);
 }
